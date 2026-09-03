@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  /* Efecto cibernético de línea de escáner */
+  .scanline {
+    background: linear-gradient(
+      to bottom,
+      rgba(255,255,255,0),
+      rgba(255,255,255,0) 50%,
+      rgba(0, 243, 255, 0.1) 50%,
+      rgba(0, 243, 255, 0.1)
+    );
+    background-size: 100% 4px;
+  }
+}
+
+body {
+  background-color: #070b12;
+  color: #e2e8f0;
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  overflow-x: hidden;
+}
+
+/* Custom Scrollbar futurista */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #070b12;
+}
+::-webkit-scrollbar-thumb {
+  background: #00f3ff;
+  border-radius: 3px;
+  box-shadow: 0 0 8px #00f3ff;
+}
