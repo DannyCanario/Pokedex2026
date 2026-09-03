@@ -1,6 +1,7 @@
 const BASE_URL = 'https://pokeapi.co/api/v2';
+export const TOTAL_POKEMON = 1025;
 
-// Cache en memoria para optimizar peticiones recurrentes
+// Caché en memoria para optimizar peticiones recurrentes
 const cache = {
   details: new Map(),
   species: new Map(),
@@ -8,10 +9,49 @@ const cache = {
   moves: new Map(),
 };
 
-export const fetchPokemonList = async (limit = 151, offset = 0) => {
-  const response = await fetch(`${BASE_URL}/pokemon?limit=${limit}&offset=${offset}`);
-  if (!response.ok) throw new Error('Error recuperando lista');
-  return await response.json();
+/**
+ * Obtiene la lista base de Pokémon.
+ * Mantiene la estructura { count, results } para compatibilidad con tu App.jsx.
+ */
+export const fetchPokemonList = async (limit = TOTAL_POKEMON, offset = 0) => {
+  try {
+    const response = await fetch(`${BASE_URL}/pokemon?limit=${limit}&offset=${offset}`);
+    if (!response.ok) throw new Error('Error recuperando lista de Pokémon');
+
+    const data = await response.json();
+
+    // Mapeamos los resultados para asegurar ID, Imagen HD e hipercompatibilidad con sprites
+    const mappedResults = data.results.map((pokemon) => {
+      const urlParts = pokemon.url.split('/').filter(Boolean);
+      const id = parseInt(urlParts[urlParts.length - 1], 10);
+      const officialArtworkUrl = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`;
+
+      return {
+        id,
+        name: pokemon.name,
+        url: pokemon.url,
+        // Ruta directa a la ilustración oficial en alta calidad
+        image: officialArtworkUrl,
+        // Objeto de compatibilidad si algún componente busca 'sprites.front_default' o 'sprites.other'
+        sprites: {
+          front_default: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`,
+          other: {
+            'official-artwork': {
+              front_default: officialArtworkUrl,
+            },
+          },
+        },
+      };
+    });
+
+    return {
+      count: data.count,
+      results: mappedResults,
+    };
+  } catch (error) {
+    console.error('Error en fetchPokemonList:', error);
+    return { count: 0, results: [] };
+  }
 };
 
 export const fetchPokemonDetail = async (identifier) => {
@@ -21,7 +61,7 @@ export const fetchPokemonDetail = async (identifier) => {
   const response = await fetch(`${BASE_URL}/pokemon/${key}`);
   if (!response.ok) throw new Error('Pokémon no encontrado');
   const data = await response.json();
-  
+
   cache.details.set(key, data);
   return data;
 };
@@ -47,9 +87,9 @@ export const fetchAbilityDescription = async (url, lang = 'es') => {
   try {
     const res = await fetch(url);
     const data = await res.json();
-    
-    const esText = data.flavor_text_entries.find((entry) => entry.language.name === 'es')?.flavor_text;
-    const enText = data.flavor_text_entries.find((entry) => entry.language.name === 'en')?.flavor_text;
+
+    const esText = data.flavor_text_entries?.find((entry) => entry.language.name === 'es')?.flavor_text;
+    const enText = data.flavor_text_entries?.find((entry) => entry.language.name === 'en')?.flavor_text;
 
     const descriptions = {
       es: esText ? esText.replace(/\f|\n/g, ' ') : 'Sin descripción en español.',
@@ -63,10 +103,9 @@ export const fetchAbilityDescription = async (url, lang = 'es') => {
   }
 };
 
-export const fetchMoveDescription = async (url, lang = 'es') => {
+export const fetchMoveDescription = async (url) => {
   if (cache.moves.has(url)) {
-    const cached = cache.moves.get(url);
-    return cached[lang] || cached['en'];
+    return cache.moves.get(url);
   }
 
   try {
@@ -76,18 +115,19 @@ export const fetchMoveDescription = async (url, lang = 'es') => {
     const esEntry = data.flavor_text_entries?.find((e) => e.language.name === 'es');
     const enEntry = data.flavor_text_entries?.find((e) => e.language.name === 'en');
 
-    const descriptions = {
+    const moveInfo = {
       es: esEntry ? esEntry.flavor_text.replace(/\f|\n/g, ' ') : 'Sin descripción de movimiento.',
       en: enEntry ? enEntry.flavor_text.replace(/\f|\n/g, ' ') : 'No move description.',
-      type: data.type.name,
-      power: data.power || '—',
-      accuracy: data.accuracy || '—',
-      pp: data.pp || '—'
+      type: data.type?.name || 'normal',
+      power: data.power ?? '—',
+      accuracy: data.accuracy ?? '—',
+      pp: data.pp ?? '—',
+      damageClass: data.damage_class?.name || null,
     };
 
-    cache.moves.set(url, descriptions);
-    return descriptions;
+    cache.moves.set(url, moveInfo);
+    return moveInfo;
   } catch {
-    return { es: 'Error', en: 'Error' };
+    return { es: 'Error de carga', en: 'Load error' };
   }
 };
